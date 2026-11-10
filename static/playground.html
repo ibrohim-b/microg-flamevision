@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroG-FlameVision: Gravity & Combustion Playground</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0A0E17;
+            color: #F8FAFC;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        #app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background: linear-gradient(135deg, #121826 0%, #0A0E17 100%);
+            border-bottom: 1px solid #1E293B;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .logo svg { width: 32px; height: 32px; }
+        .logo .accent { color: #38BDF8; }
+        .logo .warning { color: #F59E0B; }
+        .preset-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .preset-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid #38BDF8;
+            color: #38BDF8;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover {
+            background: #38BDF8;
+            color: #0A0E17;
+        }
+        .preset-btn.warning {
+            border-color: #F59E0B;
+            color: #F59E0B;
+        }
+        .preset-btn.warning:hover {
+            background: #F59E0B;
+            color: #0A0E17;
+        }
+        .preset-btn.danger {
+            border-color: #EF4444;
+            color: #EF4444;
+        }
+        .preset-btn.danger:hover {
+            background: #EF4444;
+            color: white;
+        }
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        @media (max-width: 1024px) {
+            main { grid-template-columns: 1fr; }
+        }
+        .control-panel {
+            background: #121826;
+            border: 1px solid #1E293B;
+            border-radius: 12px;
+            padding: 1.5rem;
+            height: fit-content;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            position: sticky;
+            top: 90px;
+        }
+        .control-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #1E293B;
+        }
+        .control-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .section-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94A3B8;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .section-title::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            background: #38BDF8;
+        }
+        .control-group {
+            margin-bottom: 1rem;
+        }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        .control-label span:last-child {
+            color: #38BDF8;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #1E293B;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #38BDF8;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 12px #38BDF8;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #38BDF8;
+            cursor: pointer;
+            border: none;
+        }
+        .select-wrapper {
+            position: relative;
+        }
+        select {
+            width: 100%;
+            padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #F8FAFC;
+            font-size: 0.875rem;
+            appearance: none;
+            cursor: pointer;
+        }
+        select:focus {
+            outline: none;
+            border-color: #38BDF8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+        .simulation-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        @media (max-width: 1200px) {
+            .simulation-container { grid-template-columns: 1fr; }
+        }
+        .chamber {
+            background: #0A0E17;
+            border: 1px solid #1E293B;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chamber-header {
+            padding: 0.875rem 1rem;
+            background: #121826;
+            border-bottom: 1px solid #1E293B;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chamber-title {
+            font-weight: 600;
+            font-size: 0.9375rem;
+        }
+        .chamber-gravity {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .chamber-gravity.micro { background: rgba(56, 189, 248, 0.2); color: #38BDF8; }
+        .chamber-gravity.lunar { background: rgba(168, 85, 247, 0.2); color: #A855F7; }
+        .chamber-gravity.mars { background: rgba(249, 115, 22, 0.2); color: #F97316; }
+        .chamber-gravity.earth { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+        .chamber-canvas {
+            flex: 1;
+            width: 100%;
+            height: 300px;
+            display: block;
+        }
+        .chamber-metrics {
+            padding: 0.875rem 1rem;
+            background: #121826;
+            border-top: 1px solid #1E293B;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+        .metric {
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #38BDF8;
+        }
+        .metric-label {
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .scenario-panel {
+            background: #121826;
+            border: 1px solid #1E293B;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .scenario-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #F8FAFC;
+        }
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+        .scenario-btn {
+            padding: 0.75rem 1rem;
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #F8FAFC;
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .scenario-btn:hover {
+            background: #334155;
+            border-color: #38BDF8;
+        }
+        .scenario-btn.active {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: #38BDF8;
+        }
+        .info-tooltip {
+            position: relative;
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #334155;
+            color: #94A3B8;
+            text-align: center;
+            line-height: 16px;
+            font-size: 10px;
+            cursor: help;
+        }
+        .info-tooltip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: max-content;
+            max-width: 200px;
+            padding: 0.5rem 0.75rem;
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: #F8FAFC;
+            white-space: normal;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .info-tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        footer {
+            padding: 1rem 2rem;
+            background: #121826;
+            border-top: 1px solid #1E293B;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #64748B;
+        }
+        .status-bar {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.75rem;
+            color: #94A3B8;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #38BDF8;
+        }
+        .status-dot.paused { background: #F59E0B; }
+        .status-dot.stopped { background: #EF4444; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8.5 14.5A2.5 2.5 0 0 1 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a5.5 5.5 0 0 1-10 0c0-2.5 1-4.4 3-5.5"/>
+                    <path d="M15.5 14.5A2.5 2.5 0 0 0 13 12c0-1.38.5-2 1-3 1.072-2.143.224-4.054-2-6-.5 2.5-2 4.9-4 6.5-2 1.6-3 3.5-3 5.5a5.5 5.5 0 0 0 10 0c0-2.5-1-4.4-3-5.5"/>
+                </svg>
+                <span>MicroG-FlameVision</span>
+                <span class="accent">Playground</span>
+            </div>
+            <div class="preset-buttons">
+                <button class="preset-btn" onclick="loadPreset('micro')">ISS Microgravity</button>
+                <button class="preset-btn" onclick="loadPreset('lunar')">Lunar (0.16g)</button>
+                <button class="preset-btn" onclick="loadPreset('mars')">Mars (0.38g)</button>
+                <button class="preset-btn warning" onclick="loadPreset('ventilation')">Ventilation Trap</button>
+                <button class="preset-btn danger" onclick="loadPreset('apollo')">Apollo 1 (34% O₂)</button>
+            </div>
+        </header>
+
+        <main>
+            <aside class="control-panel">
+                <div class="control-section">
+                    <div class="section-title">Gravity Environment</div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Gravity Level</span>
+                            <span id="gravityValue">0.00 g</span>
+                        </label>
+                        <input type="range" id="gravitySlider" min="0" max="1" step="0.01" value="0">
+                        <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#64748B;margin-top:0.25rem;">
+                            <span>0g (Micro)</span>
+                            <span>0.16g (Lunar)</span>
+                            <span>0.38g (Mars)</span>
+                            <span>1g (Earth)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Atmosphere</div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Oxygen %</span>
+                            <span id="o2Value">21%</span>
+                        </label>
+                        <input type="range" id="o2Slider" min="10" max="35" step="0.5" value="21">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Pressure (kPa)</span>
+                            <span id="pressureValue">101.3</span>
+                        </label>
+                        <input type="range" id="pressureSlider" min="50" max="150" step="0.5" value="101.3">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Ventilation</div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Airflow (m/s)</span>
+                            <span id="flowValue">0.05</span>
+                        </label>
+                        <input type="range" id="flowSlider" min="0" max="1" step="0.01" value="0.05">
+                        <div style="font-size:0.75rem;color:#64748B;">0 = Quiescent, 0.2 = ISS typical, 1.0 = High flow</div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Flow Direction</span>
+                            <span id="flowDirValue">↑ Upward</span>
+                        </label>
+                        <select id="flowDirection">
+                            <option value="up">Upward (ceiling vent)</option>
+                            <option value="down">Downward (floor vent)</option>
+                            <option value="horizontal">Horizontal (cross-flow)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Fuel & Ignition</div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Fuel Type</span>
+                            <span id="fuelValue">Heptane</span>
+                        </label>
+                        <select id="fuelSelect">
+                            <option value="heptane">Heptane (liquid, droplet)</option>
+                            <option value="methanol">Methanol (liquid, droplet)</option>
+                            <option value="hexane">Hexane (liquid, droplet)</option>
+                            <option value="ethylene">Ethylene (gaseous)</option>
+                            <option value="pmma">PMMA (solid, flat)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Initial Diameter (mm)</span>
+                            <span id="diamValue">8.0</span>
+                        </label>
+                        <input type="range" id="diamSlider" min="2" max="20" step="0.5" value="8">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">
+                        Simulation
+                        <span class="info-tooltip" data-tip="Adjust simulation speed and particle count for performance">?</span>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Time Scale</span>
+                            <span id="timeScaleValue">1.0×</span>
+                        </label>
+                        <input type="range" id="timeScaleSlider" min="0.1" max="5" step="0.1" value="1">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">
+                            <span>Particle Count</span>
+                            <span id="particleCountValue">800</span>
+                        </label>
+                        <input type="range" id="particleCountSlider" min="200" max="2000" step="100" value="800">
+                    </div>
+                    <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                        <button id="pauseBtn" class="preset-btn" style="flex:1;" onclick="togglePause()">⏸ Pause</button>
+                        <button id="resetBtn" class="preset-btn warning" style="flex:1;" onclick="resetSimulation()">↻ Reset</button>
+                    </div>
+                </div>
+
+                <div class="scenario-panel">
+                    <div class="scenario-title">Guided Scenarios</div>
+                    <div class="scenario-grid">
+                        <button class="scenario-btn" onclick="loadPreset('suffocation')">Suffocation Experiment</button>
+                        <button class="scenario-btn" onclick="loadPreset('ventilation')">Ventilation Trap</button>
+                        <button class="scenario-btn" onclick="loadPreset('apollo')">Apollo 1 Warning</button>
+                        <button class="scenario-btn" onclick="loadPreset('coolflame')">Cool Flame Transition</button>
+                        <button class="scenario-btn" onclick="loadPreset('blowoff')">Blowoff Limit</button>
+                        <button class="scenario-btn" onclick="loadPreset('radiative')">Radiative Extinction</button>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="simulation-container">
+                <div class="chamber" id="chamberMicro">
+                    <div class="chamber-header">
+                        <span class="chamber-title">Chamber A: Microgravity</span>
+                        <span class="chamber-gravity micro">~0g</span>
+                    </div>
+                    <canvas class="chamber-canvas" id="canvasMicro"></canvas>
+                    <div class="chamber-metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="microDiameter">0.00</div>
+                            <div class="metric-label">Diameter (mm)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="microTemp">0</div>
+                            <div class="metric-label">Temp (°C)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="microK">0.000</div>
+                            <div class="metric-label">K (mm²/s)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chamber" id="chamberLunar">
+                    <div class="chamber-header">
+                        <span class="chamber-title">Chamber B: Lunar Gravity</span>
+                        <span class="chamber-gravity lunar">0.16g</span>
+                    </div>
+                    <canvas class="chamber-canvas" id="canvasLunar"></canvas>
+                    <div class="chamber-metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="lunarDiameter">0.00</div>
+                            <div class="metric-label">Diameter (mm)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="lunarTemp">0</div>
+                            <div class="metric-label">Temp (°C)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="lunarK">0.000</div>
+                            <div class="metric-label">K (mm²/s)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chamber" id="chamberEarth">
+                    <div class="chamber-header">
+                        <span class="chamber-title">Chamber C: Earth Gravity</span>
+                        <span class="chamber-gravity earth">1.00g</span>
+                    </div>
+                    <canvas class="chamber-canvas" id="canvasEarth"></canvas>
+                    <div class="chamber-metrics">
+                        <div class="metric">
+                            <div class="metric-value" id="earthDiameter">0.00</div>
+                            <div class="metric-label">Diameter (mm)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="earthTemp">0</div>
+                            <div class="metric-label">Temp (°C)</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value" id="earthK">0.000</div>
+                            <div class="metric-label">K (mm²/s)</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span>Simulation: <span id="statusText">Running</span></span>
+                </div>
+                <div class="status-item">
+                    <span id="fpsDisplay">FPS: 60</span>
+                </div>
+                <div class="status-item">
+                    <span>Time: <span id="simTime">0.00</span>s</span>
+                </div>
+                <div class="status-item">
+                    <span>Frame: <span id="frameCount">0</span></span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================
+        // PHYSICS CONSTANTS & CONFIGURATION
+        // ============================================
+        const FUEL_PROPS = {
+            heptane: { baseK: 0.85, temp: 1600, soot: 0.8, color: {core:[30,180,220], outer:[20,120,200]}, density: 0.68 },
+            methanol: { baseK: 0.62, temp: 1400, soot: 0.3, color: {core:[60,150,200], outer:[40,100,180]}, density: 0.79 },
+            hexane: { baseK: 0.78, temp: 1550, soot: 0.7, color: {core:[35,170,210], outer:[25,110,190]}, density: 0.66 },
+            ethylene: { baseK: 1.10, temp: 1700, soot: 0.5, color: {core:[50,200,230], outer:[30,140,200]}, density: 0.001 },
+            pmma: { baseK: 0.45, temp: 1200, soot: 0.6, color: {core:[40,160,200], outer:[30,100,180]}, density: 1.18 }
+        };
+
+        const GRAVITY_PRESETS = {
+            micro: { g: 1e-6, label: 'Microgravity', class: 'micro' },
+            lunar: { g: 1.62, label: 'Lunar (0.16g)', class: 'lunar' },
+            mars: { g: 3.71, label: 'Mars (0.38g)', class: 'mars' },
+            earth: { g: 9.81, label: 'Earth (1g)', class: 'earth' }
+        };
+
+        // ============================================
+        // PARTICLE SYSTEM
+        // ============================================
+        class FlameParticle {
+            constructor(x, y, chamber) {
+                this.chamber = chamber;
+                this.reset(x, y);
+            }
+
+            reset(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.life = 1.0;
+                this.maxLife = 1.0;
+                this.size = Math.random() * 4 + 2;
+                this.temp = 1.0;
+                this.fuel = chamber.fuelType;
+                this.props = FUEL_PROPS[this.fuel];
+                this.isReacting = true;
+                this.oxygen = 1.0;
+            }
+
+            update(dt, gravity, flowVel, flowDir, o2Global) {
+                if (!this.isReacting) {
+                    this.life -= dt * 0.5;
+                    this.vy += gravity * dt * 0.5; // Smoke falls slowly
+                    return;
+                }
+
+                // Diffusion velocity (random walk)
+                const diffCoeff = 0.02 * (1 + this.temp);
+                this.vx += (Math.random() - 0.5) * diffCoeff;
+                this.vy += (Math.random() - 0.5) * diffCoeff;
+
+                // Buoyancy velocity
+                const buoyancy = gravity * (this.temp - 0.3) * 0.15;
+                this.vy -= buoyancy; // Negative Y = up
+
+                // Forced flow
+                let fx = 0, fy = 0;
+                if (flowDir === 'up') fy = -flowVel;
+                else if (flowDir === 'down') fy = flowVel;
+                else if (flowDir === 'horizontal') fx = flowVel * (Math.random() > 0.5 ? 1 : -1);
+                this.vx += fx * dt * 0.5;
+                this.vy += fy * dt * 0.5;
+
+                // Damping
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+
+                // Position update
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+
+                // Oxygen consumption
+                this.oxygen = Math.max(0, o2Global - 0.3 * (1 - this.life));
+                if (this.oxygen < 0.12) { // 12% O2 limit
+                    this.isReacting = false;
+                }
+
+                // Temperature decay
+                this.temp *= 0.995;
+                this.life -= dt * 0.3;
+
+                // Boundary wrap for diffusion
+                const w = this.chamber.width, h = this.chamber.height;
+                if (this.x < 0) this.x = w;
+                if (this.x > w) this.x = 0;
+                if (this.y < 0) this.y = h;
+                if (this.y > h) this.y = 0;
+            }
+
+            draw(p) {
+                const alpha = this.life * (this.isReacting ? 1 : 0.3);
+                const sz = this.size * this.life * 0.5 + 1;
+                const t = this.temp;
+
+                // Color interpolation
+                const core = this.props.color.core;
+                const outer = this.props.color.outer;
+                const r = Math.round(outer[0] + (core[0] - outer[0]) * t);
+                const g = Math.round(outer[1] + (core[1] - outer[1]) * t);
+                const b = Math.round(outer[2] + (core[2] - outer[2]) * t);
+
+                p.noStroke();
+                p.fill(r, g, b, alpha * 255);
+                p.circle(this.x, this.y, sz);
+
+                // Hot core
+                if (this.isReacting && t > 0.7) {
+                    p.fill(255, 255, 255, alpha * 100);
+                    p.circle(this.x, this.y, sz * 0.4);
+                }
+            }
+        }
+
+        // ============================================
+        // CHAMBER CLASS
+        // ============================================
+        class Chamber {
+            constructor(canvasId, gravityKey, isReference = false) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.gravityKey = gravityKey;
+                this.gravity = GRAVITY_PRESETS[gravityKey].g;
+                this.isReference = isReference; // Microgravity reference chamber
+                this.particles = [];
+                this.fuelType = 'heptane';
+                this.o2Percent = 21;
+                this.pressure = 101.3;
+                this.flowVel = 0.05;
+                this.flowDir = 'up';
+                this.diameter = 8;
+                this.time = 0;
+                this.diameterHistory = [];
+                this.kHistory = [];
+                this.lastDiameter = 0;
+                this.extinguished = false;
+                this.coolFlameMode = false;
+
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.initParticles();
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.width = rect.width - 2; // Account for border
+                this.height = 300;
+                this.canvas.width = this.width * window.devicePixelRatio;
+                this.canvas.height = this.height * window.devicePixelRatio;
+                this.canvas.style.width = this.width + 'px';
+                this.canvas.style.height = this.height + 'px';
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            }
+
+            initParticles() {
+                this.particles = [];
+                const cx = this.width / 2;
+                const cy = this.height / 2;
+                const count = Math.min(simulation.particleCount, 1500);
+
+                for (let i = 0; i < count; i++) {
+                    // Initialize in sphere around center
+                    const r = this.diameter * 5 * Math.random();
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    const x = cx + r * Math.sin(phi) * Math.cos(theta);
+                    const y = cy + r * Math.sin(phi) * Math.sin(theta);
+                    this.particles.push(new FlameParticle(x, y, this));
+                }
+            }
+
+            setParams(params) {
+                const prevFuel = this.fuelType;
+                this.fuelType = params.fuel;
+                this.o2Percent = params.o2;
+                this.pressure = params.pressure;
+                this.flowVel = params.flow;
+                this.flowDir = params.flowDir;
+                this.diameter = params.diameter;
+                this.coolFlameMode = params.coolFlame || false;
+
+                if (prevFuel !== this.fuelType) {
+                    this.particles.forEach(p => {
+                        p.fuel = this.fuelType;
+                        p.props = FUEL_PROPS[this.fuelType];
+                    });
+                }
+            }
+
+            update(dt) {
+                if (simulation.paused) return;
+
+                this.time += dt * simulation.timeScale;
+
+                // Replenish particles at center (fuel surface)
+                const cx = this.width / 2;
+                const cy = this.height / 2;
+                const spawnRate = 5 * simulation.timeScale;
+                const spawnCount = Math.floor(spawnRate * dt * 60);
+
+                for (let i = 0; i < spawnCount; i++) {
+                    if (this.particles.length < simulation.particleCount) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const r = this.diameter * 2;
+                        this.particles.push(new FlameParticle(
+                            cx + Math.cos(angle) * r,
+                            cy + Math.sin(angle) * r,
+                            this
+                        ));
+                    }
+                }
+
+                // Update particles
+                const o2Global = this.o2Percent / 100;
+                this.particles.forEach(p => p.update(dt, this.gravity, this.flowVel, this.flowDir, o2Global));
+
+                // Remove dead particles
+                this.particles = this.particles.filter(p => p.life > 0.05);
+
+                // Compute effective diameter from reacting particles
+                const reacting = this.particles.filter(p => p.isReacting);
+                if (reacting.length > 10) {
+                    const xs = reacting.map(p => p.x);
+                    const ys = reacting.map(p => p.y);
+                    const minX = Math.min(...xs), maxX = Math.max(...xs);
+                    const minY = Math.min(...ys), maxY = Math.max(...ys);
+                    this.lastDiameter = Math.max(maxX - minX, maxY - minY) / 10; // Convert to mm-ish
+                } else {
+                    this.lastDiameter = Math.max(0, this.lastDiameter - dt * 2);
+                }
+
+                // Cool flame transition
+                if (this.coolFlameMode && this.time > 15 && !this.extinguished) {
+                    // Reduce reaction rate dramatically
+                    this.particles.forEach(p => {
+                        if (p.isReacting && Math.random() < 0.02) {
+                            p.isReacting = false;
+                            p.temp = 0.3; // Cool flame temp
+                        }
+                    });
+                }
+
+                // Track diameter for K calculation
+                this.diameterHistory.push({t: this.time, d: this.lastDiameter});
+                if (this.diameterHistory.length > 500) this.diameterHistory.shift();
+
+                // Calculate K from d² law (need at least 10 points)
+                if (this.diameterHistory.length > 20) {
+                    this.computeK();
+                }
+
+                // Check extinction
+                if (this.lastDiameter < 0.5 && !this.extinguished) {
+                    this.extinguished = true;
+                }
+
+                this.updateMetrics();
+            }
+
+            computeK() {
+                const data = this.diameterHistory.slice(-100);
+                if (data.length < 10) return;
+
+                // Linear regression on D² = D₀² - K*t
+                let sumT = 0, sumD2 = 0, sumT2 = 0, sumTD2 = 0;
+                data.forEach(pt => {
+                    const d2 = pt.d * pt.d;
+                    sumT += pt.t;
+                    sumD2 += d2;
+                    sumT2 += pt.t * pt.t;
+                    sumTD2 += pt.t * d2;
+                });
+                const n = data.length;
+                const denom = n * sumT2 - sumT * sumT;
+                if (Math.abs(denom) > 1e-6) {
+                    const K = -(n * sumTD2 - sumT * sumD2) / denom;
+                    this.kHistory.push(Math.max(0, K));
+                    if (this.kHistory.length > 50) this.kHistory.shift();
+                }
+            }
+
+            updateMetrics() {
+                const prefix = this.gravityKey === 'micro' ? 'micro' :
+                               this.gravityKey === 'lunar' ? 'lunar' : 'earth';
+
+                document.getElementById(`${prefix}Diameter`).textContent = this.lastDiameter.toFixed(2);
+                document.getElementById(`${prefix}Temp`).textContent = Math.round(
+                    FUEL_PROPS[this.fuelType].temp * (this.extinguished ? 0.1 : 1)
+                );
+                const avgK = this.kHistory.length > 0 ?
+                    this.kHistory.reduce((a,b)=>a+b,0)/this.kHistory.length : 0;
+                document.getElementById(`${prefix}K`).textContent = avgK.toFixed(3);
+            }
+
+            draw(p) {
+                // Background
+                p.background(10, 14, 23);
+
+                // Chamber walls glow
+                p.noFill();
+                p.stroke(30, 41, 59, 100);
+                p.strokeWeight(2);
+                p.rect(10, 10, this.width - 20, this.height - 20, 8);
+
+                // Draw particles
+                this.particles.forEach(particle => particle.draw(p));
+
+                // Extinction indicator
+                if (this.extinguished) {
+                    p.fill(239, 68, 68, 150);
+                    p.noStroke();
+                    p.textAlign(p.CENTER, p.CENTER);
+                    p.textSize(24);
+                    p.text('EXTINGUISHED', this.width/2, this.height/2);
+                }
+
+                // Cool flame indicator
+                if (this.coolFlameMode && this.time > 15) {
+                    p.fill(56, 189, 248, 100);
+                    p.noStroke();
+                    p.textAlign(p.CENTER, p.CENTER);
+                    p.textSize(16);
+                    p.text('COOL FLAME', this.width/2, 40);
+                }
+
+                // Flow direction arrow
+                if (this.flowVel > 0.02) {
+                    p.stroke(56, 189, 248, 150);
+                    p.strokeWeight(2);
+                    p.fill(56, 189, 248, 150);
+                    const cx = this.width - 30;
+                    const cy = 30;
+                    if (this.flowDir === 'up') {
+                        p.triangle(cx, cy+10, cx-8, cy-5, cx+8, cy-5);
+                    } else if (this.flowDir === 'down') {
+                        p.triangle(cx, cy-10, cx-8, cy+5, cx+8, cy+5);
+                    } else {
+                        p.triangle(cx+10, cy, cx-5, cy-8, cx-5, cy+8);
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // SIMULATION CONTROLLER
+        // ============================================
+        const simulation = {
+            chambers: {},
+            paused: false,
+            timeScale: 1,
+            particleCount: 800,
+            lastTime: 0,
+            frameCount: 0,
+            fps: 60,
+            params: {
+                gravity: 0,
+                o2: 21,
+                pressure: 101.3,
+                flow: 0.05,
+                flowDir: 'up',
+                fuel: 'heptane',
+                diameter: 8,
+                coolFlame: false
+            }
+        };
+
+        // p5.js instance mode for multiple canvases
+        function createChamberSketch(gravityKey) {
+            return function(p) {
+                let chamber;
+
+                p.setup = function() {
+                    p.createCanvas(1, 1); // Will be resized
+                    chamber = new Chamber(
+                        gravityKey === 'micro' ? 'canvasMicro' :
+                        gravityKey === 'lunar' ? 'canvasLunar' : 'canvasEarth',
+                        gravityKey
+                    );
+                    simulation.chambers[gravityKey] = chamber;
+                };
+
+                p.draw = function() {
+                    if (!chamber) return;
+                    const dt = 1/60;
+                    chamber.update(dt);
+                    chamber.draw(p);
+                };
+            };
+        }
+
+        // Initialize three p5 instances
+        new p5(createChamberSketch('micro'), 'canvasMicro');
+        new p5(createChamberSketch('lunar'), 'canvasLunar');
+        new p5(createChamberSketch('earth'), 'canvasEarth');
+
+        // ============================================
+        // UI CONTROLS
+        // ============================================
+        function updateParams() {
+            simulation.params = {
+                gravity: parseFloat(document.getElementById('gravitySlider').value),
+                o2: parseFloat(document.getElementById('o2Slider').value),
+                pressure: parseFloat(document.getElementById('pressureSlider').value),
+                flow: parseFloat(document.getElementById('flowSlider').value),
+                flowDir: document.getElementById('flowDirection').value,
+                fuel: document.getElementById('fuelSelect').value,
+                diameter: parseFloat(document.getElementById('diamSlider').value),
+                coolFlame: simulation.params.coolFlame
+            };
+
+            // Update display values
+            document.getElementById('gravityValue').textContent = simulation.params.gravity.toFixed(2) + ' g';
+            document.getElementById('o2Value').textContent = simulation.params.o2 + '%';
+            document.getElementById('pressureValue').textContent = simulation.params.pressure.toFixed(1);
+            document.getElementById('flowValue').textContent = simulation.params.flow.toFixed(2);
+            document.getElementById('flowDirValue').textContent =
+                simulation.params.flowDir === 'up' ? '↑ Upward' :
+                simulation.params.flowDir === 'down' ? '↓ Downward' : '↔ Horizontal';
+            document.getElementById('fuelValue').textContent =
+                simulation.params.fuel.charAt(0).toUpperCase() + simulation.params.fuel.slice(1);
+            document.getElementById('diamValue').textContent = simulation.params.diameter.toFixed(1);
+
+            // Apply to all chambers
+            Object.values(simulation.chambers).forEach(ch => ch.setParams(simulation.params));
+
+            // Update chamber gravity labels
+            updateChamberGravityLabels();
+        }
+
+        function updateChamberGravityLabels() {
+            const g = simulation.params.gravity;
+            const microChamber = simulation.chambers.micro;
+            const lunarChamber = simulation.chambers.lunar;
+            const earthChamber = simulation.chambers.earth;
+
+            if (microChamber) microChamber.gravity = g === 0 ? 1e-6 : g * 0.01; // Microgravity always near zero
+            if (lunarChamber) lunarChamber.gravity = Math.max(1.62, g * 9.81);
+            if (earthChamber) earthChamber.gravity = 9.81;
+        }
+
+        function loadPreset(name) {
+            const presets = {
+                micro: { gravity: 0, o2: 21, pressure: 101.3, flow: 0.05, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: false },
+                lunar: { gravity: 0.16, o2: 21, pressure: 101.3, flow: 0.05, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: false },
+                mars: { gravity: 0.38, o2: 21, pressure: 101.3, flow: 0.05, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: false },
+                earth: { gravity: 1, o2: 21, pressure: 101.3, flow: 0.05, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: false },
+                suffocation: { gravity: 0, o2: 21, pressure: 101.3, flow: 0.0, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: false },
+                ventilation: { gravity: 0, o2: 21, pressure: 101.3, flow: 0.3, flowDir: 'horizontal', fuel: 'heptane', diameter: 8, coolFlame: false },
+                apollo: { gravity: 1, o2: 34, pressure: 101.3, flow: 0.05, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: false },
+                coolflame: { gravity: 0, o2: 18, pressure: 101.3, flow: 0.02, flowDir: 'up', fuel: 'heptane', diameter: 8, coolFlame: true },
+                blowoff: { gravity: 0, o2: 21, pressure: 101.3, flow: 0.8, flowDir: 'horizontal', fuel: 'ethylene', diameter: 10, coolFlame: false },
+                radiative: { gravity: 0, o2: 16, pressure: 80, flow: 0.0, flowDir: 'up', fuel: 'pmma', diameter: 6, coolFlame: false }
+            };
+
+            const preset = presets[name];
+            if (!preset) return;
+
+            simulation.params = {...preset};
+
+            // Update UI
+            document.getElementById('gravitySlider').value = preset.gravity;
+            document.getElementById('o2Slider').value = preset.o2;
+            document.getElementById('pressureSlider').value = preset.pressure;
+            document.getElementById('flowSlider').value = preset.flow;
+            document.getElementById('flowDirection').value = preset.flowDir;
+            document.getElementById('fuelSelect').value = preset.fuel;
+            document.getElementById('diamSlider').value = preset.diameter;
+
+            updateParams();
+            resetSimulation();
+        }
+
+        function togglePause() {
+            simulation.paused = !simulation.paused;
+            const btn = document.getElementById('pauseBtn');
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+
+            if (simulation.paused) {
+                btn.textContent = '▶ Resume';
+                btn.classList.remove('preset-btn');
+                btn.classList.add('preset-btn', 'warning');
+                dot.classList.add('paused');
+                text.textContent = 'Paused';
+            } else {
+                btn.textContent = '⏸ Pause';
+                btn.classList.remove('warning');
+                dot.classList.remove('paused');
+                text.textContent = 'Running';
+            }
+        }
+
+        function resetSimulation() {
+            simulation.timeScale = parseFloat(document.getElementById('timeScaleSlider').value);
+            simulation.particleCount = parseInt(document.getElementById('particleCountSlider').value);
+
+            Object.values(simulation.chambers).forEach(ch => {
+                ch.time = 0;
+                ch.diameterHistory = [];
+                ch.kHistory = [];
+                ch.extinguished = false;
+                ch.lastDiameter = ch.diameter;
+                ch.initParticles();
+            });
+
+            simulation.frameCount = 0;
+            simulation.lastTime = performance.now();
+            document.getElementById('simTime').textContent = '0.00';
+            document.getElementById('frameCount').textContent = '0';
+        }
+
+        // Event listeners
+        document.getElementById('gravitySlider').addEventListener('input', updateParams);
+        document.getElementById('o2Slider').addEventListener('input', updateParams);
+        document.getElementById('pressureSlider').addEventListener('input', updateParams);
+        document.getElementById('flowSlider').addEventListener('input', updateParams);
+        document.getElementById('flowDirection').addEventListener('change', updateParams);
+        document.getElementById('fuelSelect').addEventListener('change', updateParams);
+        document.getElementById('diamSlider').addEventListener('input', updateParams);
+
+        document.getElementById('timeScaleSlider').addEventListener('input', (e) => {
+            simulation.timeScale = parseFloat(e.target.value);
+            document.getElementById('timeScaleValue').textContent = simulation.timeScale.toFixed(1) + '×';
+        });
+
+        document.getElementById('particleCountSlider').addEventListener('input', (e) => {
+            simulation.particleCount = parseInt(e.target.value);
+            document.getElementById('particleCountValue').textContent = simulation.particleCount;
+        });
+
+        // FPS counter
+        let fpsFrames = 0, fpsLastTime = performance.now();
+        function updateFPS() {
+            fpsFrames++;
+            const now = performance.now();
+            if (now - fpsLastTime >= 1000) {
+                simulation.fps = Math.round(fpsFrames * 1000 / (now - fpsLastTime));
+                document.getElementById('fpsDisplay').textContent = 'FPS: ' + simulation.fps;
+                fpsFrames = 0;
+                fpsLastTime = now;
+            }
+            requestAnimationFrame(updateFPS);
+        }
+        requestAnimationFrame(updateFPS);
+
+        // Main loop for time/frame display
+        function updateDisplay() {
+            if (!simulation.paused) {
+                const micro = simulation.chambers.micro;
+                if (micro) {
+                    document.getElementById('simTime').textContent = micro.time.toFixed(2);
+                    document.getElementById('frameCount').textContent = simulation.frameCount++;
+                }
+            }
+            requestAnimationFrame(updateDisplay);
+        }
+        requestAnimationFrame(updateDisplay);
+
+        // Initialize
+        updateParams();
+        resetSimulation();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            Object.values(simulation.chambers).forEach(ch => ch.resize());
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+            if (e.code === 'KeyR') { resetSimulation(); }
+            if (e.code === 'Digit1') loadPreset('micro');
+            if (e.code === 'Digit2') loadPreset('lunar');
+            if (e.code === 'Digit3') loadPreset('mars');
+            if (e.code === 'Digit4') loadPreset('earth');
+        });
+    </script>
+</body>
+</html>
