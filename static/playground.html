@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MicroG-FlameVision: Gravity & Combustion Playground</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+    <!-- Self-contained Native HTML5 Canvas Simulator (Zero external dependencies) -->
     <style>
         * {
             margin: 0;
@@ -622,88 +621,111 @@
             reset(x, y) {
                 this.x = x;
                 this.y = y;
-                this.vx = 0;
-                this.vy = 0;
-                this.life = 1.0;
-                this.maxLife = 1.0;
-                this.size = Math.random() * 4 + 2;
-                this.temp = 1.0;
-                this.fuel = chamber.fuelType;
-                this.props = FUEL_PROPS[this.fuel];
+                this.vx = (Math.random() - 0.5) * 0.3;
+                this.vy = (Math.random() - 0.5) * 0.3;
+                this.life = 0.5 + Math.random() * 0.5;
+                this.maxLife = this.life;
+                this.size = Math.random() * 3.5 + 2.0;
+                this.temp = 0.8 + Math.random() * 0.2;
+                this.fuel = this.chamber ? this.chamber.fuelType : 'heptane';
+                this.props = FUEL_PROPS[this.fuel] || FUEL_PROPS.heptane;
                 this.isReacting = true;
                 this.oxygen = 1.0;
             }
 
             update(dt, gravity, flowVel, flowDir, o2Global) {
                 if (!this.isReacting) {
-                    this.life -= dt * 0.5;
-                    this.vy += gravity * dt * 0.5; // Smoke falls slowly
+                    this.life -= dt * 0.4;
+                    this.vy += gravity * dt * 0.05; // Smoke drifts slowly
+                    this.x += this.vx * dt * 40;
+                    this.y += this.vy * dt * 40;
                     return;
                 }
 
-                // Diffusion velocity (random walk)
-                const diffCoeff = 0.02 * (1 + this.temp);
+                // Diffusion velocity (random molecular walk)
+                const diffCoeff = 0.45 * (1 + this.temp);
                 this.vx += (Math.random() - 0.5) * diffCoeff;
                 this.vy += (Math.random() - 0.5) * diffCoeff;
 
-                // Buoyancy velocity
-                const buoyancy = gravity * (this.temp - 0.3) * 0.15;
-                this.vy -= buoyancy; // Negative Y = up
+                // Buoyancy velocity: -g * (T_particle - T_ambient)
+                // In microgravity (g = 1e-6), buoyancy is strictly 0!
+                const buoyancy = gravity * (this.temp - 0.25) * 0.35;
+                this.vy -= buoyancy; // Negative Y = upward in canvas
 
-                // Forced flow
+                // Forced ventilation flow
                 let fx = 0, fy = 0;
-                if (flowDir === 'up') fy = -flowVel;
-                else if (flowDir === 'down') fy = flowVel;
-                else if (flowDir === 'horizontal') fx = flowVel * (Math.random() > 0.5 ? 1 : -1);
-                this.vx += fx * dt * 0.5;
-                this.vy += fy * dt * 0.5;
+                if (flowDir === 'up') fy = -flowVel * 16;
+                else if (flowDir === 'down') fy = flowVel * 16;
+                else if (flowDir === 'horizontal') fx = flowVel * 16;
+                this.vx += fx * dt;
+                this.vy += fy * dt;
 
-                // Damping
-                this.vx *= 0.98;
-                this.vy *= 0.98;
+                // Viscous damping
+                this.vx *= 0.96;
+                this.vy *= 0.96;
 
                 // Position update
                 this.x += this.vx * dt * 60;
                 this.y += this.vy * dt * 60;
 
-                // Oxygen consumption
+                // Oxygen consumption field
                 this.oxygen = Math.max(0, o2Global - 0.3 * (1 - this.life));
-                if (this.oxygen < 0.12) { // 12% O2 limit
+                if (this.oxygen < 0.12) { // 12% O2 quench limit
                     this.isReacting = false;
                 }
 
-                // Temperature decay
-                this.temp *= 0.995;
-                this.life -= dt * 0.3;
+                // Temperature decay & life progression
+                this.temp *= 0.994;
+                this.life -= dt * 0.32;
 
-                // Boundary wrap for diffusion
+                // Boundary collision damping
                 const w = this.chamber.width, h = this.chamber.height;
-                if (this.x < 0) this.x = w;
-                if (this.x > w) this.x = 0;
-                if (this.y < 0) this.y = h;
-                if (this.y > h) this.y = 0;
+                if (this.x < 15) { this.x = 15; this.vx *= -0.4; }
+                if (this.x > w - 15) { this.x = w - 15; this.vx *= -0.4; }
+                if (this.y < 15) { this.y = 15; this.vy *= -0.4; }
+                if (this.y > h - 15) { this.y = h - 15; this.vy *= -0.4; }
             }
 
-            draw(p) {
-                const alpha = this.life * (this.isReacting ? 1 : 0.3);
-                const sz = this.size * this.life * 0.5 + 1;
+            draw(ctx) {
+                const alpha = Math.max(0, Math.min(1, this.life * (this.isReacting ? 0.85 : 0.2)));
+                const sz = Math.max(0.6, this.size * this.life);
                 const t = this.temp;
 
-                // Color interpolation
-                const core = this.props.color.core;
-                const outer = this.props.color.outer;
+                // Color palette based on gravity regime (soot vs blue chemiluminescence)
+                let core, outer;
+                if (this.chamber.coolFlameMode && this.chamber.time > 15) {
+                    // Cool flame regime: faint ghostly pale blue / near-IR
+                    core = [180, 220, 255];
+                    outer = [80, 140, 220];
+                } else if (this.chamber.gravityKey === 'micro' || this.chamber.gravity < 0.1) {
+                    // Microgravity: Pure blue chemiluminescence (CH* 430nm, C2* 516nm)
+                    core = [140, 220, 255];
+                    outer = [30, 120, 240];
+                } else if (this.chamber.gravityKey === 'earth' || this.chamber.gravity > 5.0) {
+                    // Earth 1g: Incandescent soot (bright yellow core, flame orange envelope)
+                    core = [255, 235, 120];
+                    outer = [245, 100, 20];
+                } else {
+                    // Lunar / Mars transitional regime
+                    core = [240, 210, 160];
+                    outer = [180, 110, 60];
+                }
+
                 const r = Math.round(outer[0] + (core[0] - outer[0]) * t);
                 const g = Math.round(outer[1] + (core[1] - outer[1]) * t);
                 const b = Math.round(outer[2] + (core[2] - outer[2]) * t);
 
-                p.noStroke();
-                p.fill(r, g, b, alpha * 255);
-                p.circle(this.x, this.y, sz);
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, sz, 0, Math.PI * 2);
+                ctx.fill();
 
-                // Hot core
-                if (this.isReacting && t > 0.7) {
-                    p.fill(255, 255, 255, alpha * 100);
-                    p.circle(this.x, this.y, sz * 0.4);
+                // Bright core reaction zone
+                if (this.isReacting && t > 0.65) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.45})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, sz * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
                 }
             }
         }
@@ -717,7 +739,7 @@
                 this.ctx = this.canvas.getContext('2d');
                 this.gravityKey = gravityKey;
                 this.gravity = GRAVITY_PRESETS[gravityKey].g;
-                this.isReference = isReference; // Microgravity reference chamber
+                this.isReference = isReference;
                 this.particles = [];
                 this.fuelType = 'heptane';
                 this.o2Percent = 21;
@@ -728,7 +750,7 @@
                 this.time = 0;
                 this.diameterHistory = [];
                 this.kHistory = [];
-                this.lastDiameter = 0;
+                this.lastDiameter = 8;
                 this.extinguished = false;
                 this.coolFlameMode = false;
 
@@ -739,13 +761,15 @@
 
             resize() {
                 const rect = this.canvas.parentElement.getBoundingClientRect();
-                this.width = rect.width - 2; // Account for border
+                this.width = Math.max(100, Math.floor(rect.width - 2));
                 this.height = 300;
-                this.canvas.width = this.width * window.devicePixelRatio;
-                this.canvas.height = this.height * window.devicePixelRatio;
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = this.width * dpr;
+                this.canvas.height = this.height * dpr;
                 this.canvas.style.width = this.width + 'px';
                 this.canvas.style.height = this.height + 'px';
-                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                this.ctx.scale(dpr, dpr);
             }
 
             initParticles() {
@@ -755,12 +779,10 @@
                 const count = Math.min(simulation.particleCount, 1500);
 
                 for (let i = 0; i < count; i++) {
-                    // Initialize in sphere around center
-                    const r = this.diameter * 5 * Math.random();
+                    const r = (this.diameter * 1.5) * Math.random();
                     const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.acos(2 * Math.random() - 1);
-                    const x = cx + r * Math.sin(phi) * Math.cos(theta);
-                    const y = cy + r * Math.sin(phi) * Math.sin(theta);
+                    const x = cx + r * Math.cos(theta);
+                    const y = cy + r * Math.sin(theta);
                     this.particles.push(new FlameParticle(x, y, this));
                 }
             }
@@ -778,7 +800,7 @@
                 if (prevFuel !== this.fuelType) {
                     this.particles.forEach(p => {
                         p.fuel = this.fuelType;
-                        p.props = FUEL_PROPS[this.fuelType];
+                        p.props = FUEL_PROPS[this.fuelType] || FUEL_PROPS.heptane;
                     });
                 }
             }
@@ -788,16 +810,16 @@
 
                 this.time += dt * simulation.timeScale;
 
-                // Replenish particles at center (fuel surface)
+                // Replenish particles at central droplet surface
                 const cx = this.width / 2;
                 const cy = this.height / 2;
-                const spawnRate = 5 * simulation.timeScale;
+                const spawnRate = 22 * simulation.timeScale;
                 const spawnCount = Math.floor(spawnRate * dt * 60);
 
                 for (let i = 0; i < spawnCount; i++) {
-                    if (this.particles.length < simulation.particleCount) {
+                    if (this.particles.length < simulation.particleCount && !this.extinguished) {
                         const angle = Math.random() * Math.PI * 2;
-                        const r = this.diameter * 2;
+                        const r = Math.random() * (this.diameter * 1.2);
                         this.particles.push(new FlameParticle(
                             cx + Math.cos(angle) * r,
                             cy + Math.sin(angle) * r,
@@ -806,47 +828,53 @@
                     }
                 }
 
-                // Update particles
+                // Update particle dynamics
                 const o2Global = this.o2Percent / 100;
-                this.particles.forEach(p => p.update(dt, this.gravity, this.flowVel, this.flowDir, o2Global));
+                for (let i = 0; i < this.particles.length; i++) {
+                    this.particles[i].update(dt, this.gravity, this.flowVel, this.flowDir, o2Global);
+                }
 
-                // Remove dead particles
+                // Remove expired particles
                 this.particles = this.particles.filter(p => p.life > 0.05);
 
-                // Compute effective diameter from reacting particles
+                // Compute effective diameter from reacting envelope
                 const reacting = this.particles.filter(p => p.isReacting);
                 if (reacting.length > 10) {
-                    const xs = reacting.map(p => p.x);
-                    const ys = reacting.map(p => p.y);
-                    const minX = Math.min(...xs), maxX = Math.max(...xs);
-                    const minY = Math.min(...ys), maxY = Math.max(...ys);
-                    this.lastDiameter = Math.max(maxX - minX, maxY - minY) / 10; // Convert to mm-ish
+                    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                    for (let i = 0; i < reacting.length; i++) {
+                        const p = reacting[i];
+                        if (p.x < minX) minX = p.x;
+                        if (p.x > maxX) maxX = p.x;
+                        if (p.y < minY) minY = p.y;
+                        if (p.y > maxY) maxY = p.y;
+                    }
+                    this.lastDiameter = Math.max(0.1, Math.max(maxX - minX, maxY - minY) / 10);
                 } else {
                     this.lastDiameter = Math.max(0, this.lastDiameter - dt * 2);
                 }
 
-                // Cool flame transition
+                // Cool flame transition logic
                 if (this.coolFlameMode && this.time > 15 && !this.extinguished) {
-                    // Reduce reaction rate dramatically
-                    this.particles.forEach(p => {
-                        if (p.isReacting && Math.random() < 0.02) {
+                    for (let i = 0; i < this.particles.length; i++) {
+                        const p = this.particles[i];
+                        if (p.isReacting && Math.random() < 0.04) {
                             p.isReacting = false;
-                            p.temp = 0.3; // Cool flame temp
+                            p.temp = 0.35; // Cool flame temperature plateau
                         }
-                    });
+                    }
                 }
 
-                // Track diameter for K calculation
-                this.diameterHistory.push({t: this.time, d: this.lastDiameter});
+                // Track diameter history for d²-law burning rate K
+                this.diameterHistory.push({ t: this.time, d: this.lastDiameter });
                 if (this.diameterHistory.length > 500) this.diameterHistory.shift();
 
-                // Calculate K from d² law (need at least 10 points)
+                // Calculate K from d²-law regression
                 if (this.diameterHistory.length > 20) {
                     this.computeK();
                 }
 
-                // Check extinction
-                if (this.lastDiameter < 0.5 && !this.extinguished) {
+                // Check extinction condition
+                if (this.lastDiameter < 0.5 && !this.extinguished && this.time > 2) {
                     this.extinguished = true;
                 }
 
@@ -857,7 +885,7 @@
                 const data = this.diameterHistory.slice(-100);
                 if (data.length < 10) return;
 
-                // Linear regression on D² = D₀² - K*t
+                // Linear regression on D²(t) = D₀² - K*t
                 let sumT = 0, sumD2 = 0, sumT2 = 0, sumTD2 = 0;
                 data.forEach(pt => {
                     const d2 = pt.d * pt.d;
@@ -879,73 +907,102 @@
                 const prefix = this.gravityKey === 'micro' ? 'micro' :
                                this.gravityKey === 'lunar' ? 'lunar' : 'earth';
 
-                document.getElementById(`${prefix}Diameter`).textContent = this.lastDiameter.toFixed(2);
-                document.getElementById(`${prefix}Temp`).textContent = Math.round(
-                    FUEL_PROPS[this.fuelType].temp * (this.extinguished ? 0.1 : 1)
-                );
-                const avgK = this.kHistory.length > 0 ?
-                    this.kHistory.reduce((a,b)=>a+b,0)/this.kHistory.length : 0;
-                document.getElementById(`${prefix}K`).textContent = avgK.toFixed(3);
+                const dElem = document.getElementById(`${prefix}Diameter`);
+                const tElem = document.getElementById(`${prefix}Temp`);
+                const kElem = document.getElementById(`${prefix}K`);
+
+                if (dElem) dElem.textContent = this.lastDiameter.toFixed(2);
+                if (tElem) {
+                    const baseTemp = (FUEL_PROPS[this.fuelType] || FUEL_PROPS.heptane).temp;
+                    tElem.textContent = Math.round(baseTemp * (this.extinguished ? 0.05 : 1));
+                }
+                if (kElem) {
+                    const avgK = this.kHistory.length > 0 ?
+                        this.kHistory.reduce((a, b) => a + b, 0) / this.kHistory.length : 0;
+                    kElem.textContent = avgK.toFixed(3);
+                }
             }
 
-            draw(p) {
-                // Background
-                p.background(10, 14, 23);
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.width, this.height);
 
-                // Chamber walls glow
-                p.noFill();
-                p.stroke(30, 41, 59, 100);
-                p.strokeWeight(2);
-                p.rect(10, 10, this.width - 20, this.height - 20, 8);
+                // Deep space background
+                ctx.fillStyle = '#0A0E17';
+                ctx.fillRect(0, 0, this.width, this.height);
 
-                // Draw particles
-                this.particles.forEach(particle => particle.draw(p));
+                // Chamber boundary glow
+                ctx.strokeStyle = 'rgba(30, 41, 59, 0.7)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(10, 10, this.width - 20, this.height - 20);
 
-                // Extinction indicator
+                // Center droplet anchor
+                const cx = this.width / 2;
+                const cy = this.height / 2;
+                ctx.fillStyle = '#38BDF8';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Render all particles
+                for (let i = 0; i < this.particles.length; i++) {
+                    this.particles[i].draw(ctx);
+                }
+
+                // Extinction banner
                 if (this.extinguished) {
-                    p.fill(239, 68, 68, 150);
-                    p.noStroke();
-                    p.textAlign(p.CENTER, p.CENTER);
-                    p.textSize(24);
-                    p.text('EXTINGUISHED', this.width/2, this.height/2);
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+                    ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('EXTINGUISHED', cx, cy);
                 }
 
-                // Cool flame indicator
-                if (this.coolFlameMode && this.time > 15) {
-                    p.fill(56, 189, 248, 100);
-                    p.noStroke();
-                    p.textAlign(p.CENTER, p.CENTER);
-                    p.textSize(16);
-                    p.text('COOL FLAME', this.width/2, 40);
+                // Cool flame banner
+                if (this.coolFlameMode && this.time > 15 && !this.extinguished) {
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+                    ctx.font = 'bold 14px system-ui, -apple-system, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('COOL FLAME REGIME', cx, 35);
                 }
 
-                // Flow direction arrow
+                // Flow direction arrow indicator
                 if (this.flowVel > 0.02) {
-                    p.stroke(56, 189, 248, 150);
-                    p.strokeWeight(2);
-                    p.fill(56, 189, 248, 150);
-                    const cx = this.width - 30;
-                    const cy = 30;
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+                    ctx.lineWidth = 2;
+                    const ax = this.width - 30;
+                    const ay = 30;
+                    ctx.beginPath();
                     if (this.flowDir === 'up') {
-                        p.triangle(cx, cy+10, cx-8, cy-5, cx+8, cy-5);
+                        ctx.moveTo(ax, ay - 10);
+                        ctx.lineTo(ax - 7, ay + 6);
+                        ctx.lineTo(ax + 7, ay + 6);
                     } else if (this.flowDir === 'down') {
-                        p.triangle(cx, cy-10, cx-8, cy+5, cx+8, cy+5);
+                        ctx.moveTo(ax, ay + 10);
+                        ctx.lineTo(ax - 7, ay - 6);
+                        ctx.lineTo(ax + 7, ay - 6);
                     } else {
-                        p.triangle(cx+10, cy, cx-5, cy-8, cx-5, cy+8);
+                        ctx.moveTo(ax + 10, ay);
+                        ctx.lineTo(ax - 6, ay - 7);
+                        ctx.lineTo(ax - 6, ay + 7);
                     }
+                    ctx.closePath();
+                    ctx.fill();
                 }
             }
         }
 
         // ============================================
-        // SIMULATION CONTROLLER
+        // SIMULATION CONTROLLER & MAIN LOOP
         // ============================================
         const simulation = {
             chambers: {},
             paused: false,
             timeScale: 1,
             particleCount: 800,
-            lastTime: 0,
+            lastTime: performance.now(),
             frameCount: 0,
             fps: 60,
             params: {
@@ -960,34 +1017,52 @@
             }
         };
 
-        // p5.js instance mode for multiple canvases
-        function createChamberSketch(gravityKey) {
-            return function(p) {
-                let chamber;
+        // Initialize three chambers directly using native HTML5 Canvas
+        simulation.chambers.micro = new Chamber('canvasMicro', 'micro');
+        simulation.chambers.lunar = new Chamber('canvasLunar', 'lunar');
+        simulation.chambers.earth = new Chamber('canvasEarth', 'earth');
 
-                p.setup = function() {
-                    p.createCanvas(1, 1); // Will be resized
-                    chamber = new Chamber(
-                        gravityKey === 'micro' ? 'canvasMicro' :
-                        gravityKey === 'lunar' ? 'canvasLunar' : 'canvasEarth',
-                        gravityKey
-                    );
-                    simulation.chambers[gravityKey] = chamber;
-                };
+        // Master Animation & Physics Loop (60fps)
+        let lastSimulationTimestamp = performance.now();
+        let fpsFrames = 0, fpsLastTime = performance.now();
 
-                p.draw = function() {
-                    if (!chamber) return;
-                    const dt = 1/60;
+        function simulationMasterLoop(now) {
+            const dt = Math.min((now - lastSimulationTimestamp) / 1000, 0.1);
+            lastSimulationTimestamp = now;
+
+            // Update FPS calculation
+            fpsFrames++;
+            if (now - fpsLastTime >= 1000) {
+                simulation.fps = Math.round((fpsFrames * 1000) / (now - fpsLastTime));
+                const fpsElem = document.getElementById('fpsDisplay');
+                if (fpsElem) fpsElem.textContent = 'FPS: ' + simulation.fps;
+                fpsFrames = 0;
+                fpsLastTime = now;
+            }
+
+            if (!simulation.paused) {
+                Object.values(simulation.chambers).forEach(chamber => {
                     chamber.update(dt);
-                    chamber.draw(p);
-                };
-            };
-        }
+                    chamber.draw();
+                });
 
-        // Initialize three p5 instances
-        new p5(createChamberSketch('micro'), 'canvasMicro');
-        new p5(createChamberSketch('lunar'), 'canvasLunar');
-        new p5(createChamberSketch('earth'), 'canvasEarth');
+                const micro = simulation.chambers.micro;
+                if (micro) {
+                    const timeElem = document.getElementById('simTime');
+                    const frameElem = document.getElementById('frameCount');
+                    if (timeElem) timeElem.textContent = micro.time.toFixed(2);
+                    if (frameElem) frameElem.textContent = simulation.frameCount++;
+                }
+            } else {
+                // Keep rendering when paused so interactions are responsive
+                Object.values(simulation.chambers).forEach(chamber => {
+                    chamber.draw();
+                });
+            }
+
+            requestAnimationFrame(simulationMasterLoop);
+        }
+        requestAnimationFrame(simulationMasterLoop);
 
         // ============================================
         // UI CONTROLS
@@ -1123,34 +1198,6 @@
             simulation.particleCount = parseInt(e.target.value);
             document.getElementById('particleCountValue').textContent = simulation.particleCount;
         });
-
-        // FPS counter
-        let fpsFrames = 0, fpsLastTime = performance.now();
-        function updateFPS() {
-            fpsFrames++;
-            const now = performance.now();
-            if (now - fpsLastTime >= 1000) {
-                simulation.fps = Math.round(fpsFrames * 1000 / (now - fpsLastTime));
-                document.getElementById('fpsDisplay').textContent = 'FPS: ' + simulation.fps;
-                fpsFrames = 0;
-                fpsLastTime = now;
-            }
-            requestAnimationFrame(updateFPS);
-        }
-        requestAnimationFrame(updateFPS);
-
-        // Main loop for time/frame display
-        function updateDisplay() {
-            if (!simulation.paused) {
-                const micro = simulation.chambers.micro;
-                if (micro) {
-                    document.getElementById('simTime').textContent = micro.time.toFixed(2);
-                    document.getElementById('frameCount').textContent = simulation.frameCount++;
-                }
-            }
-            requestAnimationFrame(updateDisplay);
-        }
-        requestAnimationFrame(updateDisplay);
 
         // Initialize
         updateParams();
